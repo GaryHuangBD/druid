@@ -108,6 +108,7 @@
 
         <!-- distribution packaging -->
         <module>extensions-distribution</module>
+        <module>extensions-lucene</module>
         <module>distribution</module>
 
     </modules>
