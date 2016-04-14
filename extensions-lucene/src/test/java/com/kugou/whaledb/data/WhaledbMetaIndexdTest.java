@@ -11,6 +11,7 @@ import io.druid.guice.JsonConfigProvider;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.loading.LuceneQueryableIndexFactory;
 import org.easymock.EasyMock;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -42,11 +43,11 @@ public class WhaledbMetaIndexdTest {
         fileChannel.close();
         fileOutputStream.close();
         ByteBuffer bytedata = WhaledbMetaIndexd.readFile(new File("data/data2"));
-        System.out.println(WhaledbMetaIndexd.readIndexed(bytedata).size());
-        System.out.println(WhaledbMetaIndexd.readIndexed(bytedata).size());
-        System.out.println(WhaledbMetaIndexd.readLong(bytedata));
-        System.out.println(WhaledbMetaIndexd.readLong(bytedata));
-        System.out.println(WhaledbMetaIndexd.readBitmapSerdeFactory(bytedata).toString());
+        Assert.assertEquals(2, WhaledbMetaIndexd.readIndexed(bytedata).size());
+        Assert.assertEquals(3, WhaledbMetaIndexd.readIndexed(bytedata).size());
+        Assert.assertEquals(1460636208000L, (long)WhaledbMetaIndexd.readLong(bytedata));
+        Assert.assertEquals(1460636211600L, (long)WhaledbMetaIndexd.readLong(bytedata));
+        Assert.assertTrue(WhaledbMetaIndexd.readBitmapSerdeFactory(bytedata) instanceof BitmapSerdeFactory);
 
     }
 
