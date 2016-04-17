@@ -513,22 +513,12 @@ public class LuceneRealtimePlumber implements Plumber
                 indexes.add(queryableIndex);
               }
 
-              final File mergedFile;
-              if (config.isPersistInHeap()) {
-                mergedFile = IndexMaker.mergeQueryableIndex(
-                    indexes,
-                    schema.getAggregators(),
-                    mergedTarget,
-                    config.getIndexSpec()
-                );
-              } else {
-                mergedFile = IndexMerger.mergeQueryableIndex(
-                    indexes,
-                    schema.getAggregators(),
-                    mergedTarget,
-                    config.getIndexSpec()
-                );
-              }
+              final File mergedFile = LuceneIndexMaker.mergeQueryableIndex(
+                  indexes,
+                  schema.getAggregators(),
+                  mergedTarget,
+                  config.getIndexSpec()
+              );
               // emit merge metrics before publishing segment
               metrics.incrementMergeCpuTime(VMUtils.safeGetThreadCpuTime() - mergeThreadCpuTime);
               metrics.incrementMergeTimeMillis(mergeStopwatch.elapsed(TimeUnit.MILLISECONDS));
@@ -1007,24 +997,14 @@ public class LuceneRealtimePlumber implements Plumber
       try {
         int numRows = indexToPersist.getIndex().size();
 
-        final File persistedFile;
-        final IndexSpec indexSpec = config.getIndexSpec();
 
-        if (config.isPersistInHeap()) {
-          persistedFile = IndexMaker.persist(
+        final IndexSpec indexSpec = config.getIndexSpec();
+        final File persistedFile = LuceneIndexMaker.persist(
               indexToPersist.getIndex(),
               new File(computePersistDir(schema, interval), String.valueOf(indexToPersist.getCount())),
               metaData,
               indexSpec
           );
-        } else {
-          persistedFile = IndexMerger.persist(
-              indexToPersist.getIndex(),
-              new File(computePersistDir(schema, interval), String.valueOf(indexToPersist.getCount())),
-              metaData,
-              indexSpec
-          );
-        }
 
         indexToPersist.swapSegment(
             new QueryableIndexSegment(

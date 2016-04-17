@@ -130,14 +130,14 @@ public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
       Supplier<InputRow> rowSupplier
   ) throws IndexSizeExceededException
   {
-    Aggregator[] aggs = new Aggregator[metrics.length];
+//    Aggregator[] aggs = new Aggregator[metrics.length];
 
-    for (int i = 0; i < metrics.length; i++) {
-      final AggregatorFactory agg = metrics[i];
-      aggs[i] = agg.factorize(
-          makeColumnSelectorFactory(agg, rowSupplier, deserializeComplexMetrics)
-      );
-    }
+//    for (int i = 0; i < metrics.length; i++) {
+//      final AggregatorFactory agg = metrics[i];
+//      aggs[i] = agg.factorize(
+//          makeColumnSelectorFactory(agg, rowSupplier, deserializeComplexMetrics)
+//      );
+//    }
     final Integer rowIndex = indexIncrement.getAndIncrement();
 
     // Last ditch sanity checks
@@ -193,7 +193,7 @@ public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
   @Override
   public Object getMetricObjectValue(int rowOffset, int aggOffset)
   {
-    return new Object();
+    return null;
   }
 
   private static class OnHeapDimDim implements DimDim
