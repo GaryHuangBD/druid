@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
 {
-  private final ConcurrentHashMap<Integer, Aggregator[]> aggregators = new ConcurrentHashMap<>();
+  // TODO: change the implementation
   private final ConcurrentNavigableMap<TimeAndDims, Integer> facts = new ConcurrentSkipListMap<>();
   private final AtomicInteger indexIncrement = new AtomicInteger(0);
   protected final int maxRowCount;
@@ -130,69 +130,24 @@ public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
       Supplier<InputRow> rowSupplier
   ) throws IndexSizeExceededException
   {
-    final Integer priorIndex = facts.get(key);
+    Aggregator[] aggs = new Aggregator[metrics.length];
 
-    Aggregator[] aggs;
-
-    if (null != priorIndex) {
-      aggs = concurrentGet(priorIndex);
-    } else {
-      aggs = new Aggregator[metrics.length];
-
-      for (int i = 0; i < metrics.length; i++) {
-        final AggregatorFactory agg = metrics[i];
-        aggs[i] = agg.factorize(
-            makeColumnSelectorFactory(agg, rowSupplier, deserializeComplexMetrics)
-        );
-      }
-      final Integer rowIndex = indexIncrement.getAndIncrement();
-
-      concurrentSet(rowIndex, aggs);
-
-      // Last ditch sanity checks
-      if (numEntries.get() >= maxRowCount && !facts.containsKey(key)) {
-        throw new IndexSizeExceededException("Maximum number of rows [%d] reached", maxRowCount);
-      }
-      final Integer prev = facts.putIfAbsent(key, rowIndex);
-      if (null == prev) {
-        numEntries.incrementAndGet();
-      } else {
-        // We lost a race
-        aggs = concurrentGet(prev);
-        // Free up the misfire
-        concurrentRemove(rowIndex);
-        // This is expected to occur ~80% of the time in the worst scenarios
-      }
+    for (int i = 0; i < metrics.length; i++) {
+      final AggregatorFactory agg = metrics[i];
+      aggs[i] = agg.factorize(
+          makeColumnSelectorFactory(agg, rowSupplier, deserializeComplexMetrics)
+      );
     }
+    final Integer rowIndex = indexIncrement.getAndIncrement();
 
-    rowContainer.set(row);
-
-    for (Aggregator agg : aggs) {
-      synchronized (agg) {
-        agg.aggregate();
-      }
+    // Last ditch sanity checks
+    if (numEntries.get() >= maxRowCount && !facts.containsKey(key)) {
+      throw new IndexSizeExceededException("Maximum number of rows [%d] reached", maxRowCount);
     }
-
-    rowContainer.set(null);
-
+    facts.putIfAbsent(key, rowIndex);
+    numEntries.incrementAndGet();
 
     return numEntries.get();
-  }
-
-  protected Aggregator[] concurrentGet(int offset)
-  {
-    // All get operations should be fine
-    return aggregators.get(offset);
-  }
-
-  protected void concurrentSet(int offset, Aggregator[] value)
-  {
-    aggregators.put(offset, value);
-  }
-
-  protected void concurrentRemove(int offset)
-  {
-    aggregators.remove(offset);
   }
 
   @Override
@@ -214,7 +169,7 @@ public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
   @Override
   protected Aggregator[] getAggsForRow(int rowOffset)
   {
-    return concurrentGet(rowOffset);
+    return null;
   }
 
   @Override
@@ -226,19 +181,19 @@ public class LuceneIncrementalIndex extends IncrementalIndex<Aggregator>
   @Override
   public float getMetricFloatValue(int rowOffset, int aggOffset)
   {
-    return concurrentGet(rowOffset)[aggOffset].getFloat();
+    return 0.0F;
   }
 
   @Override
   public long getMetricLongValue(int rowOffset, int aggOffset)
   {
-    return concurrentGet(rowOffset)[aggOffset].getLong();
+    return 0L;
   }
 
   @Override
   public Object getMetricObjectValue(int rowOffset, int aggOffset)
   {
-    return concurrentGet(rowOffset)[aggOffset].get();
+    return new Object();
   }
 
   private static class OnHeapDimDim implements DimDim
