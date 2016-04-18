@@ -19,7 +19,7 @@ public class WhaledbCodes
     private final StoredFieldsFormat storedFieldsFormat = new WhaledbStoredFieldsFormat();
 
     public WhaledbCodes() {
-        super("WhaledbCodes", new Lucene53Codec());
+        super("WhaledbCodec", new Lucene53Codec());
     }
 
     public final StoredFieldsFormat storedFieldsFormat() {

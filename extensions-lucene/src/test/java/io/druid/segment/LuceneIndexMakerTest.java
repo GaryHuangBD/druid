@@ -34,11 +34,15 @@ import io.druid.query.aggregation.CountAggregatorFactory;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.ConciseBitmapSerdeFactory;
+import io.druid.segment.data.Indexed;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.commons.io.FileUtils;
 import org.joda.time.DateTime;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -143,11 +147,11 @@ public class LuceneIndexMakerTest
 
     return Iterables.<Object[]>concat(
         permute(map1)
-        , permute(map1, map4)
-        , permute(map1, map5)
-        , permute(map5, map6)
-        , permute(map4, map5)
-        , Iterables.transform(ImmutableList.of(Arrays.asList(map1, map2, map3, map4, map5, map6)), OBJECT_MAKER)
+//        , permute(map1, map4)
+//        , permute(map1, map5)
+//        , permute(map5, map6)
+//        , permute(map4, map5)
+//        , Iterables.transform(ImmutableList.of(Arrays.asList(map1, map2, map3, map4, map5, map6)), OBJECT_MAKER)
     );
 
   }
@@ -192,16 +196,28 @@ public class LuceneIndexMakerTest
   public void testPersistWithSegmentMetadata() throws IOException
   {
     File outDir = Files.createTempDir();
+    QueryableIndex index = null;
     try {
       outDir = Files.createTempDir();
       Map<String, Object> segmentMetadata = ImmutableMap.<String, Object>of("key", "value");
       LuceneIndexMaker.persist(toPersist, outDir, segmentMetadata, INDEX_SPEC);
+      index = LuceneIndexIO.loadIndex(outDir);
+      Indexed<String> cols = index.getColumnNames();
+      for (String col : cols) {
+        System.out.println(col);
+      }
     }
     finally {
+      if (index != null) {
+        index.close();
+      }
+
       if (outDir != null) {
         FileUtils.deleteDirectory(outDir);
       }
     }
   }
+
+
 
 }

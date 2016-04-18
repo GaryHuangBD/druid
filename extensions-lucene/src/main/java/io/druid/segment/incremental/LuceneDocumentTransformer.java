@@ -2,7 +2,8 @@ package io.druid.segment.incremental;
 
 import com.google.common.base.Function;
 import com.metamx.common.guava.FunctionalIterable;
-import io.druid.segment.column.ValueType;
+import io.druid.segment.column.Column;
+import io.druid.segment.column.ColumnCapabilities;
 import org.apache.lucene.document.*;
 
 import javax.annotation.Nullable;
@@ -29,6 +30,8 @@ public class LuceneDocumentTransformer {
                     final IncrementalIndex.TimeAndDims timeAndDims = input.getKey();
                     final String[][] dimValues = timeAndDims.getDims();
                     Document doc = new Document();
+                    // add time field
+                    doc.add(new LongField(Column.TIME_COLUMN_NAME, timeAndDims.getTimestamp(), Field.Store.NO));
                     String fName;
                     for(int i=0; i<dimensions.size(); i++){
                         fName = dimensions.get(i);
@@ -39,7 +42,7 @@ public class LuceneDocumentTransformer {
                             if (null == fVal) {
                                 continue;
                             }
-                            doc.add(createField(fName, index.getCapabilities(fName).getType(), fVal));
+                            doc.add(createFields(fName, index.getCapabilities(fName), fVal));
                         }
                     }
                     return doc;
@@ -48,8 +51,8 @@ public class LuceneDocumentTransformer {
         return docs;
     }
 
-    private Field createField(String name, ValueType type, String val){
-        switch (type){
+    private Field createFields(String name, ColumnCapabilities capabilities, String val){
+        switch (capabilities.getType()){
             case STRING:
                 return new StringField(name, val, Field.Store.NO);
             case FLOAT:

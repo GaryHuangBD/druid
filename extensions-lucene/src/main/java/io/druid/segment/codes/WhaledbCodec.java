@@ -9,13 +9,13 @@ import org.apache.lucene.index.IndexWriterConfig;
 /**
  * 
  */
-public class WhaledbCodes
+public class WhaledbCodec
         extends FilterCodec {
     private final TermVectorsFormat vectorsFormat = new WhaledbTermVectorsFormat();
     private final StoredFieldsFormat storedFieldsFormat = new WhaledbStoredFieldsFormat();
 
-    public WhaledbCodes() {
-        super("WhaledbCodes", new Lucene53Codec());
+    public WhaledbCodec() {
+        super("WhaledbCodec", new Lucene53Codec());
     }
 
     public final StoredFieldsFormat storedFieldsFormat() {
@@ -27,6 +27,6 @@ public class WhaledbCodes
     }
 
     public static void setCodes(IndexWriterConfig iwc) {
-        iwc.setCodec(new WhaledbCodes());
+        iwc.setCodec(new WhaledbCodec());
     }
 }

@@ -24,13 +24,13 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.kugou.whaledb.codes.WhaledbCodes;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
 import io.druid.common.utils.SerializerUtils;
 import io.druid.guice.GuiceInjectors;
 import io.druid.query.aggregation.AggregatorFactory;
+import io.druid.segment.codes.WhaledbCodec;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.LuceneDocumentTransformer;
 import org.apache.commons.io.FileUtils;
@@ -138,7 +138,7 @@ public class LuceneIndexMaker
     IndexWriterConfig iwc = new IndexWriterConfig(new SimpleAnalyzer());
     // for test
     iwc.setUseCompoundFile(false);
-    WhaledbCodes.setCodes(iwc);
+    WhaledbCodec.setCodes(iwc);
     IndexWriter writer = new IndexWriter(dir, iwc);
     writer.addDocuments(transformer.transform());
     writer.close();
