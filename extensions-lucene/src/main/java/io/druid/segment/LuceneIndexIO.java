@@ -1,15 +1,30 @@
 package io.druid.segment;
 
 import com.google.common.collect.ImmutableMap;
+import com.kugou.whaledb.data.WhaledbMetaIndexd;
+import com.kugou.whaledb.hdfsDirectory.FileSystemDirectory;
 import com.metamx.collections.bitmap.BitmapFactory;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
 import io.druid.segment.column.Column;
+import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.Indexed;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.Fields;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.SingleInstanceLockFactory;
 import org.joda.time.Interval;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Map;
 
 /**
@@ -51,12 +66,23 @@ public class LuceneIndexIO {
 
         @Override
         public QueryableIndex load(File inDir) throws IOException {
-            Interval dataInterval = null;
             Indexed<String> columnNames = null;
-            Indexed<String> availableDimensions = null;
-            BitmapFactory bitmapFactory = null;
             Map<String, Column> columns = null;
-            Map<String, Object> metadata = null;
+
+
+            ByteBuffer indexBuffer = WhaledbMetaIndexd.readFile(new File(inDir, WhaledbMetaIndexd.META_FILE));
+            final Indexed<String> availableDimensions = WhaledbMetaIndexd.readIndexed(indexBuffer);
+            final Indexed<String> availableMetrics = WhaledbMetaIndexd.readIndexed(indexBuffer);
+            final Interval dataInterval = new Interval(WhaledbMetaIndexd.readLong(indexBuffer), WhaledbMetaIndexd.readLong(indexBuffer));
+            final BitmapFactory bitmapFactory = WhaledbMetaIndexd.readBitmapSerdeFactory(indexBuffer).getBitmapFactory();
+
+            Configuration conf = new Configuration();
+            //TODO here just for test
+            FileSystem fs = new NoPermissionFileSystem();
+            fs.initialize(FileSystem.getDefaultUri(conf), conf);
+            Directory dir = new FileSystemDirectory(new Path(inDir.getPath()), new SingleInstanceLockFactory(), conf, fs);
+            IndexReader reader = DirectoryReader.open(dir);
+            Fields fields = MultiFields.getFields(reader);
 
             return new LuceneQueryableIndex(
                     dataInterval,
@@ -64,8 +90,17 @@ public class LuceneIndexIO {
                     availableDimensions,
                     bitmapFactory,
                     columns,
-                    metadata
+                    null
             );
+        }
+    }
+    static class NoPermissionFileSystem extends LocalFileSystem {
+        public FSDataOutputStream create(Path f,
+                                         boolean overwrite,
+                                         int bufferSize
+        ) throws IOException {
+            return create(f, null, overwrite, bufferSize,
+                    getDefaultReplication(f), getDefaultBlockSize(f), null);
         }
     }
 

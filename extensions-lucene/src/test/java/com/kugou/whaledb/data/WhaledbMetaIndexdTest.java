@@ -51,39 +51,5 @@ public class WhaledbMetaIndexdTest {
 
     }
 
-    @Test
-    public void write1() throws Exception {
-
-    }
-
-    @Test
-    public void write2() throws Exception {
-
-    }
-
-    @Test
-    public void write3() throws Exception {
-
-    }
-
-    @Test
-    public void readFile() throws Exception {
-
-    }
-
-    @Test
-    public void readIndexed() throws Exception {
-
-    }
-
-    @Test
-    public void readLong() throws Exception {
-
-    }
-
-    @Test
-    public void write4() throws Exception {
-
-    }
 
 }

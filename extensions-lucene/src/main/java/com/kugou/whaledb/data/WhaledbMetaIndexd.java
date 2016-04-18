@@ -24,6 +24,8 @@ import java.util.Arrays;
  */
 public class WhaledbMetaIndexd {
 
+    public static final String META_FILE = "meta";
+
     private static final ObjectMapper mapper;
 
     static {
