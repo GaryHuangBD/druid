@@ -505,10 +505,10 @@ public class LuceneRealtimePlumber implements Plumber
             final long mergeThreadCpuTime = VMUtils.safeGetThreadCpuTime();
             final Stopwatch mergeStopwatch = Stopwatch.createStarted();
             try {
-              List<QueryableIndex> indexes = Lists.newArrayList();
+              List<LuceneQueryableIndex> indexes = Lists.newArrayList();
               for (FireHydrant fireHydrant : sink) {
                 Segment segment = fireHydrant.getSegment();
-                final QueryableIndex queryableIndex = segment.asQueryableIndex();
+                final LuceneQueryableIndex queryableIndex = (LuceneQueryableIndex)segment.asQueryableIndex();
                 log.info("Adding hydrant[%s]", fireHydrant);
                 indexes.add(queryableIndex);
               }
@@ -523,7 +523,7 @@ public class LuceneRealtimePlumber implements Plumber
               metrics.incrementMergeCpuTime(VMUtils.safeGetThreadCpuTime() - mergeThreadCpuTime);
               metrics.incrementMergeTimeMillis(mergeStopwatch.elapsed(TimeUnit.MILLISECONDS));
 
-              QueryableIndex index = IndexIO.loadIndex(mergedFile);
+              QueryableIndex index = LuceneIndexIO.loadIndex(mergedFile);
               log.info("Pushing [%s] to deep storage", sink.getSegment().getIdentifier());
 
               DataSegment segment = dataSegmentPusher.push(
@@ -721,7 +721,7 @@ public class LuceneRealtimePlumber implements Plumber
         }
         QueryableIndex queryableIndex = null;
         try {
-          queryableIndex = IndexIO.loadIndex(segmentDir);
+          queryableIndex = LuceneIndexIO.loadIndex(segmentDir);
         }
         catch (IOException e) {
           log.error(e, "Problem loading segmentDir from disk.");
@@ -729,7 +729,7 @@ public class LuceneRealtimePlumber implements Plumber
         }
         if (isCorrupted) {
           try {
-            queryableIndex = IndexIO.loadIndex(segmentDir);
+            queryableIndex = LuceneIndexIO.loadIndex(segmentDir);
           }
           catch (IOException e) {
             log.error(e, "Problem loading segmentDir from disk.");
@@ -1009,7 +1009,7 @@ public class LuceneRealtimePlumber implements Plumber
         indexToPersist.swapSegment(
             new QueryableIndexSegment(
                 indexToPersist.getSegment().getIdentifier(),
-                IndexIO.loadIndex(persistedFile)
+                LuceneIndexIO.loadIndex(persistedFile)
             )
         );
         return numRows;
