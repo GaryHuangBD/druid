@@ -24,6 +24,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.kugou.whaledb.codes.WhaledbCodes;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
@@ -135,6 +136,9 @@ public class LuceneIndexMaker
     LuceneDocumentTransformer transformer = new LuceneDocumentTransformer(index);
     Directory dir = new NIOFSDirectory(Paths.get(outDir.toURI()));
     IndexWriterConfig iwc = new IndexWriterConfig(new SimpleAnalyzer());
+    // for test
+    iwc.setUseCompoundFile(false);
+    WhaledbCodes.setCodes(iwc);
     IndexWriter writer = new IndexWriter(dir, iwc);
     writer.addDocuments(transformer.transform());
     writer.close();

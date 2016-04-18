@@ -2,7 +2,6 @@ package io.druid.segment.incremental;
 
 import com.google.common.base.Function;
 import com.metamx.common.guava.FunctionalIterable;
-import io.druid.segment.Rowboat;
 import io.druid.segment.column.ValueType;
 import org.apache.lucene.document.*;
 
@@ -33,7 +32,13 @@ public class LuceneDocumentTransformer {
                     String fName;
                     for(int i=0; i<dimensions.size(); i++){
                         fName = dimensions.get(i);
+                        if (null == dimValues[i]) {
+                            continue;
+                        }
                         for(String fVal : dimValues[i]){
+                            if (null == fVal) {
+                                continue;
+                            }
                             doc.add(createField(fName, index.getCapabilities(fName).getType(), fVal));
                         }
                     }
