@@ -4,8 +4,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.metamx.collections.bitmap.BitmapFactory;
-import io.druid.segment.column.AbstractColumn;
-import io.druid.segment.column.Column;
+import io.druid.segment.column.*;
 import io.druid.segment.data.ArrayIndexed;
 import io.druid.segment.data.Indexed;
 import org.apache.lucene.index.*;
@@ -47,7 +46,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
         for (String dim : fields) {
             if (!Column.TIME_COLUMN_NAME.equals(dim)){
                 dimSet.add(dim);
-                columns.put(dim, new TermsColumn(fields.terms(dim))) ;
+                columns.put(dim, new TermsColumn(fields.terms(dim), MultiDocValues.getSortedSetValues(indexReader, dim))) ;
             }
         }
         String[] dims = dimSet.toArray(new String[dimSet.size()]);
@@ -108,10 +107,23 @@ public class LuceneQueryableIndex implements QueryableIndex {
     public static class TermsColumn extends AbstractColumn {
         private final Terms terms;
         private final int length;
+        private final DictionaryEncodedColumn dictionaryEncodedColumn;
 
-        public TermsColumn(Terms terms) throws IOException {
+        public TermsColumn(Terms terms, SortedSetDocValues docValues) throws IOException {
             this.terms = terms;
             length = Ints.checkedCast(terms.size());
+            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(terms);
+        }
+
+        @Override
+        public DictionaryEncodedColumn getDictionaryEncoding()
+        {
+            return dictionaryEncodedColumn;
+        }
+
+        @Override
+        public BitmapIndex getBitmapIndex() {
+            return new LuceneBitmapIndex();
         }
 
         @Override

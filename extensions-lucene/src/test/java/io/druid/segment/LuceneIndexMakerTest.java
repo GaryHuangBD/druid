@@ -31,6 +31,7 @@ import io.druid.data.input.MapBasedInputRow;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
+import io.druid.segment.column.DictionaryEncodedColumn;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.ConciseBitmapSerdeFactory;
@@ -203,8 +204,11 @@ public class LuceneIndexMakerTest
       LuceneIndexMaker.persist(toPersist, outDir, segmentMetadata, INDEX_SPEC);
       index = LuceneIndexIO.loadIndex(outDir);
       Indexed<String> cols = index.getColumnNames();
+      DictionaryEncodedColumn dictionaryEncodedColumn;
       for (String col : cols) {
-        System.out.println(col);
+        dictionaryEncodedColumn = index.getColumn(col).getDictionaryEncoding();
+        String id = dictionaryEncodedColumn.lookupName(0);
+        System.out.println(id);
       }
     }
     finally {

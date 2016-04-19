@@ -5,8 +5,11 @@ import com.metamx.common.guava.FunctionalIterable;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import org.apache.lucene.document.*;
+import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.util.BytesRef;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -42,7 +45,9 @@ public class LuceneDocumentTransformer {
                             if (null == fVal) {
                                 continue;
                             }
-                            doc.add(createFields(fName, index.getCapabilities(fName), fVal));
+                            for (IndexableField field: createFields(fName, index.getCapabilities(fName), fVal)) {
+                                doc.add(field);
+                            }
                         }
                     }
                     return doc;
@@ -51,17 +56,29 @@ public class LuceneDocumentTransformer {
         return docs;
     }
 
-    private Field createFields(String name, ColumnCapabilities capabilities, String val){
+    private List<IndexableField> createFields(String name, ColumnCapabilities capabilities, String val){
+        List<IndexableField> fields = new ArrayList<>();
+        boolean hasMultipleValues = capabilities.hasMultipleValues();
         switch (capabilities.getType()){
             case STRING:
-                return new StringField(name, val, Field.Store.NO);
+                fields.add(new StringField(name, val, Field.Store.NO));
+                final BytesRef bytes = new BytesRef(val);
+                if (hasMultipleValues) {
+                    fields.add(new SortedSetDocValuesField(name, bytes));
+                } else {
+                    fields.add(new SortedDocValuesField(name, bytes));
+                }
+                break;
             case FLOAT:
-                return new FloatField(name, Float.parseFloat(val), Field.Store.NO);
+                fields.add(new FloatField(name, Float.parseFloat(val), Field.Store.NO));
+                break;
             case LONG:
-                return new LongField(name, Long.parseLong(val), Field.Store.NO);
+                fields.add(new LongField(name, Long.parseLong(val), Field.Store.NO));
+                break;
             case COMPLEX:
             default:
-                throw new UnsupportedOperationException();
+                break;
         }
+        return fields;
     }
 }
