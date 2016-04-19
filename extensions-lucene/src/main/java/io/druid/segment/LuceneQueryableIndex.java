@@ -1,42 +1,59 @@
 package io.druid.segment;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.primitives.Ints;
 import com.metamx.collections.bitmap.BitmapFactory;
-import com.metamx.common.io.smoosh.SmooshedFileMapper;
+import io.druid.segment.column.AbstractColumn;
 import io.druid.segment.column.Column;
+import io.druid.segment.data.ArrayIndexed;
 import io.druid.segment.data.Indexed;
+import org.apache.lucene.index.*;
+import org.apache.lucene.store.Directory;
 import org.joda.time.Interval;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Created by garyhuang on 2016/4/13.
+ *
  */
 public class LuceneQueryableIndex implements QueryableIndex {
-    private final Interval dataInterval;
-    private final Indexed<String> columnNames;
+    private Interval dataInterval;
+    private Indexed<String> columnNames;
     private final Indexed<String> availableDimensions;
-    private final BitmapFactory bitmapFactory;
-    private final Map<String, Column> columns;
-    private final Map<String, Object> metadata;
+    private BitmapFactory bitmapFactory;
+    private Map<String, Column> columns;
+    private Map<String, Object> metadata;
+
+    private final Directory directory;
+    private final IndexReader indexReader;
+    private final Fields fields;
+    private final int length;
 
     public LuceneQueryableIndex(
-            Interval dataInterval,
-            Indexed<String> columnNames,
-            Indexed<String> dimNames,
-            BitmapFactory bitmapFactory,
-            Map<String, Column> columns,
-            Map<String, Object> metadata
-    )
-    {
-        Preconditions.checkNotNull(columns.get(Column.TIME_COLUMN_NAME));
-        this.dataInterval = dataInterval;
-        this.columnNames = columnNames;
-        this.availableDimensions = dimNames;
-        this.bitmapFactory = bitmapFactory;
-        this.columns = columns;
+        Directory directory,
+        Map<String, Object> metadata
+    ) throws IOException {
+        this.directory = directory;
         this.metadata = metadata;
+        indexReader = DirectoryReader.open(directory);
+        fields = MultiFields.getFields(indexReader);
+        long size = fields.terms(Column.TIME_COLUMN_NAME).size();
+        length = Ints.checkedCast(size);
+        columns = Maps.newHashMap();
+        Set<String> dimSet = Sets.newTreeSet();
+        for (String dim : fields) {
+            if (!Column.TIME_COLUMN_NAME.equals(dim)){
+                dimSet.add(dim);
+                columns.put(dim, new TermsColumn(fields.terms(dim))) ;
+            }
+        }
+        String[] dims = dimSet.toArray(new String[dimSet.size()]);
+        availableDimensions = new ArrayIndexed<>(dims, String.class);
+        // TODO: add metric column
+        columnNames = availableDimensions;
     }
 
     @Override
@@ -48,7 +65,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
     @Override
     public int getNumRows()
     {
-        return columns.get(Column.TIME_COLUMN_NAME).getLength();
+        return length;
     }
 
     @Override
@@ -78,12 +95,28 @@ public class LuceneQueryableIndex implements QueryableIndex {
     @Override
     public void close() throws IOException
     {
-
+        indexReader.close();
+        directory.close();
     }
 
     @Override
     public Map<String, Object> getMetaData()
     {
         return metadata;
+    }
+
+    public static class TermsColumn extends AbstractColumn {
+        private final Terms terms;
+        private final int length;
+
+        public TermsColumn(Terms terms) throws IOException {
+            this.terms = terms;
+            length = Ints.checkedCast(terms.size());
+        }
+
+        @Override
+        public int getLength() {
+            return length;
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.kugou.whaledb.codes;
+package io.druid.segment.codes;
 
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -7,18 +7,14 @@ import org.apache.lucene.codecs.lucene53.Lucene53Codec;
 import org.apache.lucene.index.IndexWriterConfig;
 
 /**
- * Created with whaledb.
- * User: chiyao
- * Date: 2016/4/8
- * Time: 11:23
- * Description:
+ * 
  */
-public class WhaledbCodes
+public class WhaledbCodec
         extends FilterCodec {
     private final TermVectorsFormat vectorsFormat = new WhaledbTermVectorsFormat();
     private final StoredFieldsFormat storedFieldsFormat = new WhaledbStoredFieldsFormat();
 
-    public WhaledbCodes() {
+    public WhaledbCodec() {
         super("WhaledbCodec", new Lucene53Codec());
     }
 
@@ -31,6 +27,6 @@ public class WhaledbCodes
     }
 
     public static void setCodes(IndexWriterConfig iwc) {
-        iwc.setCodec(new WhaledbCodes());
+        iwc.setCodec(new WhaledbCodec());
     }
 }
