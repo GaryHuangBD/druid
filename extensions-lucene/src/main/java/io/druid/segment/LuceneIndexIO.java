@@ -1,16 +1,14 @@
 package io.druid.segment;
 
+import com.google.api.client.util.Maps;
 import com.google.common.collect.ImmutableMap;
-import com.kugou.whaledb.data.WhaledbMetaIndexd;
 import com.metamx.common.ISE;
 import com.metamx.emitter.EmittingLogger;
-import io.druid.segment.column.Column;
-import io.druid.segment.data.Indexed;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.LocalFileSystem;
-import org.apache.hadoop.fs.Path;
+import io.druid.common.utils.JodaUtils;
+import io.druid.segment.data.LuceneMetaIndexd;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
+import org.joda.time.Interval;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,6 +25,8 @@ public class LuceneIndexIO {
 
     private static final EmittingLogger log = new EmittingLogger(LuceneIndexIO.class);
 
+    public static final byte LUCENE_VERSION = 0x7f;
+
     private static final Map<Integer, IndexIO.IndexLoader> indexLoaders =
             ImmutableMap.<Integer, IndexIO.IndexLoader>builder()
                     .put(0, new IndexIO.LegacyIndexLoader())
@@ -39,7 +39,7 @@ public class LuceneIndexIO {
                     .put(7, new IndexIO.LegacyIndexLoader())
                     .put(8, new IndexIO.LegacyIndexLoader())
                     .put(9, new IndexIO.V9IndexLoader())
-                    .put(99, new LuceneIndexIO.LuceneIndexLoader())
+                    .put(127, new LuceneIndexIO.LuceneIndexLoader())
                     .build();
 
     public static QueryableIndex loadIndex(File inDir) throws IOException {
@@ -62,12 +62,18 @@ public class LuceneIndexIO {
             log.debug("Mapping Lucene index[%s]", inDir);
             long startTime = System.currentTimeMillis();
 
-//            ByteBuffer indexBuffer = WhaledbMetaIndexd.readFile(new File(inDir, WhaledbMetaIndexd.META_FILE));
-//            final Indexed<String> availableMetrics = WhaledbMetaIndexd.readIndexed(indexBuffer);
-//            final Interval dataInterval = new Interval(WhaledbMetaIndexd.readLong(indexBuffer), WhaledbMetaIndexd.readLong(indexBuffer));
-//            final BitmapFactory bitmapFactory = WhaledbMetaIndexd.readBitmapSerdeFactory(indexBuffer).getBitmapFactory();
+            File metaFile = new File(inDir, LuceneMetaIndexd.META_FILE);
+            Map<String, String> availableMetricAndType = Maps.newHashMap();
+            Interval dataInterval = new Interval(JodaUtils.MIN_INSTANT, JodaUtils.MAX_INSTANT);
+
+            if (metaFile.exists()) {
+                ByteBuffer indexBuffer = LuceneMetaIndexd.readFile(new File(inDir, LuceneMetaIndexd.META_FILE));
+                availableMetricAndType = LuceneMetaIndexd.readMetricAndType(indexBuffer);
+                dataInterval = new Interval(LuceneMetaIndexd.readLong(indexBuffer), LuceneMetaIndexd.readLong(indexBuffer));
+            }
+
             Directory dir = new NIOFSDirectory(Paths.get(inDir.toURI()));
-            QueryableIndex index  = new LuceneQueryableIndex(dir, null);
+            QueryableIndex index  = new LuceneQueryableIndex(dir, dataInterval, availableMetricAndType, null);
             log.debug("Mapped Lucene index[%s] in %,d millis", inDir, System.currentTimeMillis() - startTime);
             return index;
         }

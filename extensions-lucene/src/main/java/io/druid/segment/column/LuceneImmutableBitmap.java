@@ -1,5 +1,6 @@
 package io.druid.segment.column;
 
+import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import javafx.geometry.Pos;
 import org.apache.lucene.index.PostingsEnum;
@@ -83,8 +84,7 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public ImmutableBitmap intersection(ImmutableBitmap otherBitmap) {
-        List<DocIdSetIterator> list = new ArrayList<>();
-        list.add(docIdSetIterator);
+        List<DocIdSetIterator> list = Lists.newArrayList(docIdSetIterator);
         return new LuceneImmutableBitmap(ConjunctionDISI.intersect(list));
     }
 

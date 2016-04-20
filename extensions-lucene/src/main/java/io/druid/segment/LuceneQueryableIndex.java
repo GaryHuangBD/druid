@@ -3,8 +3,10 @@ package io.druid.segment;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
+import com.kugou.whaledb.data.*;
 import com.metamx.collections.bitmap.BitmapFactory;
 import io.druid.segment.column.*;
+import io.druid.segment.column.LuceneBitmapFactory;
 import io.druid.segment.data.ArrayIndexed;
 import io.druid.segment.data.Indexed;
 import org.apache.lucene.index.*;
@@ -21,29 +23,34 @@ import java.util.Set;
 public class LuceneQueryableIndex implements QueryableIndex {
     private Interval dataInterval;
     private Indexed<String> columnNames;
-    private final Indexed<String> availableDimensions;
-    private BitmapFactory bitmapFactory;
+    private final BitmapFactory bitmapFactory;
     private Map<String, Column> columns;
-    private Map<String, Object> metadata;
-
     private final Directory directory;
     private final IndexReader indexReader;
     private final Fields fields;
     private final int length;
+    private final Map<String, Object> metadata;
+    private final Map<String, String> availableMetricAndType;
 
     public LuceneQueryableIndex(
         Directory directory,
+        Interval dataInterval,
+        Map<String, String> availableMetricAndType,
         Map<String, Object> metadata
     ) throws IOException {
         this.directory = directory;
-
+        this.dataInterval = dataInterval;
+        this.availableMetricAndType = availableMetricAndType;
         this.metadata = metadata;
-        indexReader = DirectoryReader.open(directory);
-        fields = MultiFields.getFields(indexReader);
+        this.indexReader = DirectoryReader.open(directory);
+
+        this.fields = MultiFields.getFields(indexReader);
 
         long size = fields.terms(Column.TIME_COLUMN_NAME).size();
-        length = Ints.checkedCast(size);
-        columns = Maps.newHashMap();
+
+
+        this.length = Ints.checkedCast(size);
+        this.columns = Maps.newHashMap();
         Set<String> dimSet = Sets.newTreeSet();
         for (String dim : fields) {
             if (!Column.TIME_COLUMN_NAME.equals(dim)){
@@ -52,9 +59,10 @@ public class LuceneQueryableIndex implements QueryableIndex {
             }
         }
         String[] dims = dimSet.toArray(new String[dimSet.size()]);
-        availableDimensions = new ArrayIndexed<>(dims, String.class);
+        ArrayIndexed<String> availableDimensions = new ArrayIndexed<>(dims, String.class);
         // TODO: add metric column
-        columnNames = availableDimensions;
+        this.columnNames = availableDimensions;
+        this.bitmapFactory = new LuceneBitmapFactory();
     }
 
     @Override
@@ -78,7 +86,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
     @Override
     public Indexed<String> getAvailableDimensions()
     {
-        return availableDimensions;
+        return columnNames;
     }
 
     @Override
