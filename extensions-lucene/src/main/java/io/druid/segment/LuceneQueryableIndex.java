@@ -37,9 +37,11 @@ public class LuceneQueryableIndex implements QueryableIndex {
         Map<String, Object> metadata
     ) throws IOException {
         this.directory = directory;
+
         this.metadata = metadata;
         indexReader = DirectoryReader.open(directory);
         fields = MultiFields.getFields(indexReader);
+
         long size = fields.terms(Column.TIME_COLUMN_NAME).size();
         length = Ints.checkedCast(size);
         columns = Maps.newHashMap();

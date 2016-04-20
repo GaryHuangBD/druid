@@ -21,6 +21,7 @@ import java.util.Arrays;
 
 /**
  * Created by garyhuang on 2016/4/14.
+ * whaleDB common info
  */
 public class WhaledbMetaIndexd {
 

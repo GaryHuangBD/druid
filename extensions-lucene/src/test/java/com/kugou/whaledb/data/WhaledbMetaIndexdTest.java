@@ -2,6 +2,7 @@ package com.kugou.whaledb.data;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -10,7 +11,9 @@ import io.druid.guice.GuiceInjectors;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.loading.LuceneQueryableIndexFactory;
+import org.apache.commons.io.FileUtils;
 import org.easymock.EasyMock;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,10 +30,24 @@ import static org.junit.Assert.*;
  */
 public class WhaledbMetaIndexdTest {
 
+    File tmpDir = null;
+
+    @Before
+    public void setUp() throws Exception {
+
+        tmpDir = Files.createTempDir();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+
+        FileUtils.deleteDirectory(tmpDir);
+    }
 
     @Test
     public void write() throws Exception {
-        FileOutputStream fileOutputStream = new FileOutputStream("data/data2");
+        File meta = new File(tmpDir, WhaledbMetaIndexd.META_FILE);
+        FileOutputStream fileOutputStream = new FileOutputStream(meta);
         FileChannel fileChannel = fileOutputStream.getChannel();
         WhaledbMetaIndexd.write(
                 new String[]{"dim1", "dim2"},
