@@ -3,10 +3,8 @@ package io.druid.segment;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
-import com.kugou.whaledb.data.*;
 import com.metamx.collections.bitmap.BitmapFactory;
 import io.druid.segment.column.*;
-import io.druid.segment.column.LuceneBitmapFactory;
 import io.druid.segment.data.ArrayIndexed;
 import io.druid.segment.data.Indexed;
 import org.apache.lucene.index.*;
@@ -23,46 +21,38 @@ import java.util.Set;
 public class LuceneQueryableIndex implements QueryableIndex {
     private Interval dataInterval;
     private Indexed<String> columnNames;
-    private final BitmapFactory bitmapFactory;
+    private final Indexed<String> availableDimensions;
+    private BitmapFactory bitmapFactory;
     private Map<String, Column> columns;
+    private Map<String, Object> metadata;
+
     private final Directory directory;
     private final IndexReader indexReader;
     private final Fields fields;
     private final int length;
-    private final Map<String, Object> metadata;
-    private final Map<String, String> availableMetricAndType;
 
     public LuceneQueryableIndex(
         Directory directory,
-        Interval dataInterval,
-        Map<String, String> availableMetricAndType,
         Map<String, Object> metadata
     ) throws IOException {
         this.directory = directory;
-        this.dataInterval = dataInterval;
-        this.availableMetricAndType = availableMetricAndType;
         this.metadata = metadata;
-        this.indexReader = DirectoryReader.open(directory);
-
-        this.fields = MultiFields.getFields(indexReader);
-
-        long size = fields.terms(Column.TIME_COLUMN_NAME).size();
-
-
-        this.length = Ints.checkedCast(size);
-        this.columns = Maps.newHashMap();
+        indexReader = DirectoryReader.open(directory);
+        fields = MultiFields.getFields(indexReader);
+        long size = fields.terms(Column.TIME_COLUMN_NAME).getDocCount();
+        length = Ints.checkedCast(size);
+        columns = Maps.newHashMap();
         Set<String> dimSet = Sets.newTreeSet();
         for (String dim : fields) {
             if (!Column.TIME_COLUMN_NAME.equals(dim)){
                 dimSet.add(dim);
-                columns.put(dim, new TermsColumn(fields.terms(dim), MultiDocValues.getSortedSetValues(indexReader, dim))) ;
+                columns.put(dim, new TermsColumn(fields.terms(dim), MultiDocValues.getSortedValues(indexReader, dim))) ;
             }
         }
         String[] dims = dimSet.toArray(new String[dimSet.size()]);
-        ArrayIndexed<String> availableDimensions = new ArrayIndexed<>(dims, String.class);
+        availableDimensions = new ArrayIndexed<>(dims, String.class);
         // TODO: add metric column
-        this.columnNames = availableDimensions;
-        this.bitmapFactory = new LuceneBitmapFactory();
+        columnNames = availableDimensions;
     }
 
     @Override
@@ -86,7 +76,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
     @Override
     public Indexed<String> getAvailableDimensions()
     {
-        return columnNames;
+        return availableDimensions;
     }
 
     @Override
@@ -115,14 +105,20 @@ public class LuceneQueryableIndex implements QueryableIndex {
     }
 
     public static class TermsColumn extends AbstractColumn {
-        private final Terms terms;
         private final int length;
         private final DictionaryEncodedColumn dictionaryEncodedColumn;
+        private final BitmapIndex bitmapIndex;
 
-        public TermsColumn(Terms terms, SortedSetDocValues docValues) throws IOException {
-            this.terms = terms;
-            length = Ints.checkedCast(terms.size());
-            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(terms);
+//        public TermsColumn(Terms terms, SortedSetDocValues docValues) throws IOException {
+//            this.terms = terms;
+//            length = Ints.checkedCast(terms.size());
+//            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(terms);
+//        }
+
+        public TermsColumn(Terms terms, SortedDocValues docValues) throws IOException {
+            this.length = Ints.checkedCast(terms.getDocCount()); ;
+            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(length, docValues);
+            bitmapIndex = new LuceneBitmapIndex(terms.iterator(), dictionaryEncodedColumn);
         }
 
         @Override
@@ -133,7 +129,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
 
         @Override
         public BitmapIndex getBitmapIndex() {
-            return new LuceneBitmapIndex();
+            return bitmapIndex;
         }
 
         @Override

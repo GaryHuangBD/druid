@@ -2,23 +2,31 @@ package io.druid.segment.column;
 
 import com.metamx.collections.bitmap.BitmapFactory;
 import com.metamx.collections.bitmap.ImmutableBitmap;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.index.TermsEnum;
+import org.apache.lucene.util.BytesRef;
+
+import java.io.IOException;
 
 /**
  *
  */
 public class LuceneBitmapIndex implements BitmapIndex{
-    private IndexReader indexReader;
+    private final DictionaryEncodedColumn dictionaryEncodedColumn;
+    private final TermsEnum termsEnum;
+
+    public LuceneBitmapIndex(TermsEnum termsEnum, DictionaryEncodedColumn dictionaryEncodedColumn) {
+        this.dictionaryEncodedColumn = dictionaryEncodedColumn;
+        this.termsEnum = termsEnum;
+    }
 
     @Override
     public int getCardinality() {
-        return 0;
+        return dictionaryEncodedColumn.getCardinality();
     }
 
     @Override
     public String getValue(int index) {
-        return null;
+        return dictionaryEncodedColumn.lookupName(index);
     }
 
     @Override
@@ -33,11 +41,18 @@ public class LuceneBitmapIndex implements BitmapIndex{
 
     @Override
     public ImmutableBitmap getBitmap(String value) {
+        try {
+            if(termsEnum.seekExact(new BytesRef(value))) {
+                return new LuceneImmutableBitmap(termsEnum.postings(null));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return null;
     }
 
     @Override
     public ImmutableBitmap getBitmap(int idx) {
-        return null;
+        return getBitmap(getValue(idx));
     }
 }
