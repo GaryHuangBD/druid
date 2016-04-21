@@ -39,14 +39,14 @@ public class LuceneQueryableIndex implements QueryableIndex {
         this.metadata = metadata;
         indexReader = DirectoryReader.open(directory);
         fields = MultiFields.getFields(indexReader);
-        long size = fields.terms(Column.TIME_COLUMN_NAME).size();
+        long size = fields.terms(Column.TIME_COLUMN_NAME).getDocCount();
         length = Ints.checkedCast(size);
         columns = Maps.newHashMap();
         Set<String> dimSet = Sets.newTreeSet();
         for (String dim : fields) {
             if (!Column.TIME_COLUMN_NAME.equals(dim)){
                 dimSet.add(dim);
-                columns.put(dim, new TermsColumn(fields.terms(dim), MultiDocValues.getSortedSetValues(indexReader, dim))) ;
+                columns.put(dim, new TermsColumn(fields.terms(dim), MultiDocValues.getSortedValues(indexReader, dim))) ;
             }
         }
         String[] dims = dimSet.toArray(new String[dimSet.size()]);
@@ -105,14 +105,20 @@ public class LuceneQueryableIndex implements QueryableIndex {
     }
 
     public static class TermsColumn extends AbstractColumn {
-        private final Terms terms;
         private final int length;
         private final DictionaryEncodedColumn dictionaryEncodedColumn;
+        private final BitmapIndex bitmapIndex;
 
-        public TermsColumn(Terms terms, SortedSetDocValues docValues) throws IOException {
-            this.terms = terms;
-            length = Ints.checkedCast(terms.size());
-            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(terms);
+//        public TermsColumn(Terms terms, SortedSetDocValues docValues) throws IOException {
+//            this.terms = terms;
+//            length = Ints.checkedCast(terms.size());
+//            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(terms);
+//        }
+
+        public TermsColumn(Terms terms, SortedDocValues docValues) throws IOException {
+            this.length = Ints.checkedCast(terms.getDocCount()); ;
+            dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(length, docValues);
+            bitmapIndex = new LuceneBitmapIndex(terms.iterator(), dictionaryEncodedColumn);
         }
 
         @Override
@@ -123,7 +129,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
 
         @Override
         public BitmapIndex getBitmapIndex() {
-            return new LuceneBitmapIndex();
+            return bitmapIndex;
         }
 
         @Override

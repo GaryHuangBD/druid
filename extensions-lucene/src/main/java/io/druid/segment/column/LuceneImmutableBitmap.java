@@ -1,8 +1,6 @@
 package io.druid.segment.column;
 
 import com.metamx.collections.bitmap.ImmutableBitmap;
-import javafx.geometry.Pos;
-import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.search.ConjunctionDISI;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.roaringbitmap.IntIterator;
@@ -12,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by Administrator on 2016/4/19 0019.
+ *
  */
 public class LuceneImmutableBitmap implements ImmutableBitmap {
     private DocIdSetIterator docIdSetIterator;
@@ -71,13 +69,10 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
     }
 
     @Override
     public ImmutableBitmap union(ImmutableBitmap otherBitmap) {
-
         return null;
     }
 
