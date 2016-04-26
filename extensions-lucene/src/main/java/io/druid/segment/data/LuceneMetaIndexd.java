@@ -29,24 +29,6 @@ public class LuceneMetaIndexd {
 
     public static final String META_FILE = "meta";
 
-    private static final ObjectMapper mapper;
-
-    static {
-        final Injector injector = GuiceInjectors.makeStartupInjectorWithModules(
-                ImmutableList.<Module>of(
-                        new Module()
-                        {
-                            @Override
-                            public void configure(Binder binder)
-                            {
-                                JsonConfigProvider.bind(binder, "druid.processing.bitmap", BitmapSerdeFactory.class);
-                            }
-                        }
-                )
-        );
-        mapper = injector.getInstance(ObjectMapper.class);
-    }
-
     private static final SerializerUtils serializerUtils = new SerializerUtils();
 
     public static void writeMetricAndType(Map<String, String> metricAndType, FileChannel channel) throws IOException {

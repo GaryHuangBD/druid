@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 public class LuceneBitmapFactory implements BitmapFactory {
     @Override
     public MutableBitmap makeEmptyMutableBitmap() {
-        return null;
+        return new LuceneMutableBitmap();
     }
 
     @Override

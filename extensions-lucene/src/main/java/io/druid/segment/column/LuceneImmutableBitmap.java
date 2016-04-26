@@ -2,22 +2,31 @@ package io.druid.segment.column;
 
 import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
-import org.apache.lucene.search.ConjunctionDISI;
-import org.apache.lucene.search.DocIdSetIterator;
+import com.metamx.common.logger.Logger;
+import org.apache.lucene.search.*;
 import org.roaringbitmap.IntIterator;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.ObjectOutputStream;
 import java.util.List;
 
 /**
  *
  */
 public class LuceneImmutableBitmap implements ImmutableBitmap {
-    private DocIdSetIterator docIdSetIterator;
+    private static final Logger log = new Logger(LuceneImmutableBitmap.class);
 
-    public LuceneImmutableBitmap(DocIdSetIterator docIdSetIterator){
-        this.docIdSetIterator = docIdSetIterator;
+    private final DocIdSetIterator docIdSetIterator;
+
+    public LuceneImmutableBitmap(DocIdSetIterator docIdSetIterator1){
+        this.docIdSetIterator = docIdSetIterator1;
+
+
+    }
+
+    public LuceneImmutableBitmap(){
+        this(DocIdSetIterator.empty());
     }
 
     @Override
@@ -25,12 +34,17 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
         return new IntIterator() {
             @Override
             public boolean hasNext() {
-                return false;
+                return docIdSetIterator.docID() == DocIdSetIterator.NO_MORE_DOCS;
             }
 
             @Override
             public int next() {
-                return 0;
+                try {
+                    return docIdSetIterator.nextDoc();
+                } catch (IOException e) {
+                    log.error("cannot find docIdSetIterator nextDoc", e);
+                }
+                return DocIdSetIterator.NO_MORE_DOCS;
             }
 
             @Override
@@ -42,17 +56,30 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public int size() {
-        return 0;
+        return (int)docIdSetIterator.cost();
     }
 
     @Override
     public byte[] toBytes() {
-        return new byte[0];
+        byte[] bytes = null;
+        try {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            ObjectOutputStream oo = new ObjectOutputStream(bo);
+            oo.writeObject(docIdSetIterator);
+
+            bytes = bo.toByteArray();
+
+            bo.close();
+            oo.close();
+        } catch (Exception e) {
+            log.error("cannot translation docIdSetIterator to byte[]", e);
+        }
+        return bytes;
     }
 
     @Override
     public int compareTo(ImmutableBitmap other) {
-        return 0;
+        return this.docIdSetIterator.docID() - other.iterator().next();
     }
 
     @Override
@@ -62,7 +89,6 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public boolean get(int value) {
-        int currDoc = docIdSetIterator.docID();
         try {
             docIdSetIterator.advance(value);
             int resDoc = docIdSetIterator.docID();
@@ -74,12 +100,24 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public ImmutableBitmap union(ImmutableBitmap otherBitmap) {
-        return null;
+        List<DocIdSetIterator> list = Lists.newArrayList(docIdSetIterator);
+        if (otherBitmap instanceof DocIdSetIterator) {
+            list.add((DocIdSetIterator)otherBitmap);
+        }
+        DisiPriorityQueue<DocIdSetIterator> subDocIdSetIterator = new DisiPriorityQueue<>(list.size());
+        for (DocIdSetIterator docIds : list) {
+            subDocIdSetIterator.add(new DisiWrapper<>(docIds));
+        }
+        DocIdSetIterator it =  new DisjunctionDISIApproximation(subDocIdSetIterator);
+        return new LuceneImmutableBitmap(it);
     }
 
     @Override
     public ImmutableBitmap intersection(ImmutableBitmap otherBitmap) {
         List<DocIdSetIterator> list = Lists.newArrayList(docIdSetIterator);
+        if (otherBitmap instanceof DocIdSetIterator) {
+            list.add((DocIdSetIterator)otherBitmap);
+        }
         return new LuceneImmutableBitmap(ConjunctionDISI.intersect(list));
     }
 

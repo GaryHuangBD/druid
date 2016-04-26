@@ -63,17 +63,17 @@ public class LuceneIndexIO {
             long startTime = System.currentTimeMillis();
 
             File metaFile = new File(inDir, LuceneMetaIndexd.META_FILE);
-            Map<String, String> availableMetricAndType = Maps.newHashMap();
+            Map<String, String> metricAndType = Maps.newHashMap();
             Interval dataInterval = new Interval(JodaUtils.MIN_INSTANT, JodaUtils.MAX_INSTANT);
 
             if (metaFile.exists()) {
                 ByteBuffer indexBuffer = LuceneMetaIndexd.readFile(new File(inDir, LuceneMetaIndexd.META_FILE));
-                availableMetricAndType = LuceneMetaIndexd.readMetricAndType(indexBuffer);
+                metricAndType = LuceneMetaIndexd.readMetricAndType(indexBuffer);
                 dataInterval = new Interval(LuceneMetaIndexd.readLong(indexBuffer), LuceneMetaIndexd.readLong(indexBuffer));
             }
 
             Directory dir = new NIOFSDirectory(Paths.get(inDir.toURI()));
-            QueryableIndex index  = new LuceneQueryableIndex(dir, dataInterval, availableMetricAndType, null);
+            QueryableIndex index  = new LuceneQueryableIndex(dir, dataInterval, metricAndType, null);
             log.debug("Mapped Lucene index[%s] in %,d millis", inDir, System.currentTimeMillis() - startTime);
             return index;
         }

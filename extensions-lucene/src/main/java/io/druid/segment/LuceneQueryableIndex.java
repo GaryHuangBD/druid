@@ -19,10 +19,11 @@ import java.util.Set;
  *
  */
 public class LuceneQueryableIndex implements QueryableIndex {
-    private Interval dataInterval;
-    private Indexed<String> columnNames;
+    private final  Interval dataInterval;
+    private final Map<String, String> metricAndType;
+    private final  Indexed<String> columnNames;
     private final Indexed<String> availableDimensions;
-    private BitmapFactory bitmapFactory;
+    private final BitmapFactory bitmapFactory;
     private Map<String, Column> columns;
     private Map<String, Object> metadata;
 
@@ -33,11 +34,16 @@ public class LuceneQueryableIndex implements QueryableIndex {
 
     public LuceneQueryableIndex(
         Directory directory,
+        Interval dataInterval,
+        Map<String, String> metricAndType,
         Map<String, Object> metadata
     ) throws IOException {
         this.directory = directory;
+        this.dataInterval = dataInterval;
+        this.metricAndType = metricAndType;
         this.metadata = metadata;
         indexReader = DirectoryReader.open(directory);
+
         fields = MultiFields.getFields(indexReader);
         long size = fields.terms(Column.TIME_COLUMN_NAME).getDocCount();
         length = Ints.checkedCast(size);
@@ -53,6 +59,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
         availableDimensions = new ArrayIndexed<>(dims, String.class);
         // TODO: add metric column
         columnNames = availableDimensions;
+        bitmapFactory = new LuceneBitmapFactory();
     }
 
     @Override
@@ -104,7 +111,7 @@ public class LuceneQueryableIndex implements QueryableIndex {
         return metadata;
     }
 
-    public static class TermsColumn extends AbstractColumn {
+    public class TermsColumn extends AbstractColumn {
         private final int length;
         private final DictionaryEncodedColumn dictionaryEncodedColumn;
         private final BitmapIndex bitmapIndex;
@@ -116,9 +123,9 @@ public class LuceneQueryableIndex implements QueryableIndex {
 //        }
 
         public TermsColumn(Terms terms, SortedDocValues docValues) throws IOException {
-            this.length = Ints.checkedCast(terms.getDocCount()); ;
+            this.length = Ints.checkedCast(terms.getDocCount());
             dictionaryEncodedColumn = new LuceneDictionaryEncodedColumn(length, docValues);
-            bitmapIndex = new LuceneBitmapIndex(terms.iterator(), dictionaryEncodedColumn);
+            bitmapIndex = new LuceneBitmapIndex(terms.iterator(), dictionaryEncodedColumn, bitmapFactory);
         }
 
         @Override
