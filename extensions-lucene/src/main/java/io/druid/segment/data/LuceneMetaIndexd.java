@@ -1,17 +1,10 @@
 package io.druid.segment.data;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.util.Maps;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
-import com.google.inject.Binder;
-import com.google.inject.Injector;
-import com.google.inject.Module;
 import io.druid.common.utils.SerializerUtils;
-import io.druid.guice.GuiceInjectors;
-import io.druid.guice.JsonConfigProvider;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.File;
@@ -37,7 +30,7 @@ public class LuceneMetaIndexd {
         }
         String metricAndTypeString ="";
         if (!metricAndType.isEmpty()) {
-            metricAndTypeString = Joiner.on(", ").withKeyValueSeparator("=").join(metricAndType);
+            metricAndTypeString = Joiner.on(",").withKeyValueSeparator("=").join(metricAndType);
         }
         serializerUtils.writeString(channel, metricAndTypeString);
     }

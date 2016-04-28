@@ -1,15 +1,12 @@
 package io.druid.segment.column;
 
-import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import com.metamx.common.logger.Logger;
-import org.apache.lucene.search.*;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.roaringbitmap.IntIterator;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.util.List;
+import java.io.*;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -17,11 +14,16 @@ import java.util.List;
 public class LuceneImmutableBitmap implements ImmutableBitmap {
     private static final Logger log = new Logger(LuceneImmutableBitmap.class);
 
-    private final DocIdSetIterator docIdSetIterator;
+    protected DocIdSetIterator docIdSetIterator;
+
+    protected LuceneImmutableBitmap(ByteBuffer byteBuffer) throws Exception {
+        ByteArrayInputStream bi = new ByteArrayInputStream(byteBuffer.array());
+        ObjectInputStream oi = new ObjectInputStream(bi);
+        this.docIdSetIterator = (DocIdSetIterator)oi.readObject();
+    }
 
     public LuceneImmutableBitmap(DocIdSetIterator docIdSetIterator1){
         this.docIdSetIterator = docIdSetIterator1;
-
 
     }
 
@@ -29,29 +31,33 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
         this(DocIdSetIterator.empty());
     }
 
+
+    private class DocIdsIterator implements IntIterator {
+        @Override
+        public boolean hasNext() {
+            return docIdSetIterator.docID() == DocIdSetIterator.NO_MORE_DOCS;
+        }
+
+        @Override
+        public int next() {
+            try {
+                return docIdSetIterator.nextDoc();
+            } catch (IOException e) {
+                log.error("cannot find docIdSetIterator nextDoc", e);
+            }
+            return DocIdSetIterator.NO_MORE_DOCS;
+        }
+
+        @Override
+        public IntIterator clone() {
+            DocIdsIterator newIt = new DocIdsIterator();
+            return newIt;
+        }
+    }
+
     @Override
     public IntIterator iterator() {
-        return new IntIterator() {
-            @Override
-            public boolean hasNext() {
-                return docIdSetIterator.docID() == DocIdSetIterator.NO_MORE_DOCS;
-            }
-
-            @Override
-            public int next() {
-                try {
-                    return docIdSetIterator.nextDoc();
-                } catch (IOException e) {
-                    log.error("cannot find docIdSetIterator nextDoc", e);
-                }
-                return DocIdSetIterator.NO_MORE_DOCS;
-            }
-
-            @Override
-            public IntIterator clone() {
-                return null;
-            }
-        };
+        return new DocIdsIterator();
     }
 
     @Override
@@ -79,7 +85,8 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public int compareTo(ImmutableBitmap other) {
-        return this.docIdSetIterator.docID() - other.iterator().next();
+        DocIdSetIterator otherDocIdsIterator = ((LuceneImmutableBitmap)other).docIdSetIterator;
+        return this.docIdSetIterator.docID() - otherDocIdsIterator.docID();
     }
 
     @Override
@@ -100,30 +107,23 @@ public class LuceneImmutableBitmap implements ImmutableBitmap {
 
     @Override
     public ImmutableBitmap union(ImmutableBitmap otherBitmap) {
-        List<DocIdSetIterator> list = Lists.newArrayList(docIdSetIterator);
-        if (otherBitmap instanceof DocIdSetIterator) {
-            list.add((DocIdSetIterator)otherBitmap);
-        }
-        DisiPriorityQueue<DocIdSetIterator> subDocIdSetIterator = new DisiPriorityQueue<>(list.size());
-        for (DocIdSetIterator docIds : list) {
-            subDocIdSetIterator.add(new DisiWrapper<>(docIds));
-        }
-        DocIdSetIterator it =  new DisjunctionDISIApproximation(subDocIdSetIterator);
-        return new LuceneImmutableBitmap(it);
+        WrappedLuceneBitmap retval = new WrappedLuceneBitmap(docIdSetIterator);
+        retval.or((WrappedLuceneBitmap)otherBitmap);
+        return retval;
     }
 
     @Override
     public ImmutableBitmap intersection(ImmutableBitmap otherBitmap) {
-        List<DocIdSetIterator> list = Lists.newArrayList(docIdSetIterator);
-        if (otherBitmap instanceof DocIdSetIterator) {
-            list.add((DocIdSetIterator)otherBitmap);
-        }
-        return new LuceneImmutableBitmap(ConjunctionDISI.intersect(list));
+        WrappedLuceneBitmap retval = new WrappedLuceneBitmap(docIdSetIterator);
+        retval.and((WrappedLuceneBitmap)otherBitmap);
+        return retval;
     }
 
     @Override
     public ImmutableBitmap difference(ImmutableBitmap otherBitmap) {
-        return null;
+        WrappedLuceneBitmap retval = new WrappedLuceneBitmap(docIdSetIterator);
+        retval.andNot((WrappedLuceneBitmap)otherBitmap);
+        return retval;
     }
 
 }

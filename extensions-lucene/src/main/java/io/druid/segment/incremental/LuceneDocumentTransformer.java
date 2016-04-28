@@ -33,8 +33,11 @@ public class LuceneDocumentTransformer {
                     final IncrementalIndex.TimeAndDims timeAndDims = input.getKey();
                     final String[][] dimValues = timeAndDims.getDims();
                     Document doc = new Document();
+
                     // add time field
                     doc.add(new LongField(Column.TIME_COLUMN_NAME, timeAndDims.getTimestamp(), Field.Store.NO));
+                    String timestamp = String.valueOf(timeAndDims.getTimestamp());
+                    doc.add(new SortedDocValuesField(Column.TIME_COLUMN_NAME, new BytesRef(timestamp)));
                     String fName;
                     for(int i=0; i<dimensions.size(); i++){
                         fName = dimensions.get(i);

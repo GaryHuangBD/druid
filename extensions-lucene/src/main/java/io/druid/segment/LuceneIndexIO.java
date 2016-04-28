@@ -43,7 +43,7 @@ public class LuceneIndexIO {
                     .build();
 
     public static QueryableIndex loadIndex(File inDir) throws IOException {
-        final int version = 99;
+        final int version = 127;
         //TODO indexing write file "version.bin"
 //        final int version = SegmentUtils.getVersionFromDir(inDir);
         final IndexIO.IndexLoader loader = indexLoaders.get(version);

@@ -47,7 +47,7 @@ public class LuceneBitmapIndex implements BitmapIndex{
     public ImmutableBitmap getBitmap(String value) {
         try {
             if(termsEnum.seekExact(new BytesRef(value))) {
-                return new LuceneImmutableBitmap(termsEnum.postings(null));
+                return new WrappedLuceneBitmap(termsEnum.postings(null));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
