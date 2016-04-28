@@ -12,32 +12,55 @@ import java.nio.ByteBuffer;
 public class LuceneBitmapFactory implements BitmapFactory {
     @Override
     public MutableBitmap makeEmptyMutableBitmap() {
-        return null;
+        return new WrappedLuceneBitmap();
     }
 
     @Override
     public ImmutableBitmap makeEmptyImmutableBitmap() {
-        return null;
+        return makeEmptyMutableBitmap();
     }
 
     @Override
     public ImmutableBitmap makeImmutableBitmap(MutableBitmap mutableBitmap) {
-        return null;
+        return mutableBitmap;
     }
 
     @Override
     public ImmutableBitmap mapImmutableBitmap(ByteBuffer b) {
+        try {
+            return new WrappedLuceneBitmap(b);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return null;
     }
 
     @Override
     public ImmutableBitmap union(Iterable<ImmutableBitmap> b) {
-        return null;
+        WrappedLuceneBitmap luceneBitmap = null;
+        for (ImmutableBitmap bitmap : b) {
+            if (luceneBitmap == null) {
+                luceneBitmap = new WrappedLuceneBitmap(((WrappedLuceneBitmap)bitmap).docIdSetIterator);
+            } else {
+                luceneBitmap.union(bitmap);
+            }
+
+        }
+        return luceneBitmap;
     }
 
     @Override
     public ImmutableBitmap intersection(Iterable<ImmutableBitmap> b) {
-        return null;
+        WrappedLuceneBitmap luceneBitmap = null;
+        for (ImmutableBitmap bitmap : b) {
+            if (luceneBitmap == null) {
+                luceneBitmap = new WrappedLuceneBitmap(((WrappedLuceneBitmap)bitmap).docIdSetIterator);
+            } else {
+                luceneBitmap.intersection(bitmap);
+            }
+
+        }
+        return luceneBitmap;
     }
 
     @Override

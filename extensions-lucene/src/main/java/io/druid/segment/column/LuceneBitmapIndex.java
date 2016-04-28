@@ -13,10 +13,14 @@ import java.io.IOException;
 public class LuceneBitmapIndex implements BitmapIndex{
     private final DictionaryEncodedColumn dictionaryEncodedColumn;
     private final TermsEnum termsEnum;
+    private final BitmapFactory bitmapFactory;
 
-    public LuceneBitmapIndex(TermsEnum termsEnum, DictionaryEncodedColumn dictionaryEncodedColumn) {
+    public LuceneBitmapIndex(TermsEnum termsEnum,
+                             DictionaryEncodedColumn dictionaryEncodedColumn,
+                             BitmapFactory bitmapFactory) {
         this.dictionaryEncodedColumn = dictionaryEncodedColumn;
         this.termsEnum = termsEnum;
+        this.bitmapFactory = bitmapFactory;
     }
 
     @Override
@@ -36,14 +40,14 @@ public class LuceneBitmapIndex implements BitmapIndex{
 
     @Override
     public BitmapFactory getBitmapFactory() {
-        return null;
+        return bitmapFactory;
     }
 
     @Override
     public ImmutableBitmap getBitmap(String value) {
         try {
             if(termsEnum.seekExact(new BytesRef(value))) {
-                return new LuceneImmutableBitmap(termsEnum.postings(null));
+                return new WrappedLuceneBitmap(termsEnum.postings(null));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -20,17 +20,22 @@
 package io.druid.segment;
 
 import com.google.common.base.Function;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.*;
 import com.google.common.io.Files;
+import com.metamx.common.guava.Sequences;
 import io.druid.common.utils.JodaUtils;
 import io.druid.data.input.InputRow;
 import io.druid.data.input.MapBasedInputRow;
 import io.druid.granularity.QueryGranularity;
+import io.druid.jackson.DefaultObjectMapper;
+import io.druid.query.QueryRunner;
+import io.druid.query.QueryRunnerTestHelper;
+import io.druid.query.Result;
+import io.druid.query.TableDataSource;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
+import io.druid.query.filter.SelectorDimFilter;
+import io.druid.query.select.*;
 import io.druid.segment.column.DictionaryEncodedColumn;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.CompressedObjectStrategy;
@@ -58,6 +63,9 @@ public class LuceneIndexMakerTest
   @Rule
   public final CloserRule closer = new CloserRule(false);
   private static final long TIMESTAMP = DateTime.parse("2014-01-01").getMillis();
+
+  public static final String segmentId = "testSegment";
+
   private static final AggregatorFactory[] DEFAULT_AGG_FACTORIES = new AggregatorFactory[]{
       new CountAggregatorFactory(
           "count"
@@ -121,33 +129,38 @@ public class LuceneIndexMakerTest
   public static Iterable<Object[]> paramFeeder()
   {
     final Map<String, Object> map1 = ImmutableMap.<String, Object>of(
-        DIMS.get(0), ImmutableList.<String>of("dim00", "dim01"),
+        //DIMS.get(0), ImmutableList.<String>of("dim00", "dim01"),
+        DIMS.get(0), "dim00",
         DIMS.get(1), "dim10"
     );
 
     final List<String> nullList = Collections.singletonList(null);
 
     final Map<String, Object> map2 = ImmutableMap.<String, Object>of(
-        DIMS.get(0), nullList,
-        DIMS.get(1), "dim10"
+        DIMS.get(0), "dim01",
+        DIMS.get(1), "dim11"
     );
-
-
     final Map<String, Object> map3 = ImmutableMap.<String, Object>of(
-        DIMS.get(0),
-        ImmutableList.<String>of("dim00", "dim01")
+            DIMS.get(0), "dim01",
+            DIMS.get(1), "dim12"
     );
 
-    final Map<String, Object> map4 = ImmutableMap.<String, Object>of();
 
-    final Map<String, Object> map5 = ImmutableMap.<String, Object>of(DIMS.get(1), "dim10");
-
-    final Map<String, Object> map6 = new HashMap<>();
-    map6.put(DIMS.get(1), null); // ImmutableMap cannot take null
+//    final Map<String, Object> map3 = ImmutableMap.<String, Object>of(
+//        DIMS.get(0),
+//        ImmutableList.<String>of("dim00", "dim01")
+//    );
+//
+//    final Map<String, Object> map4 = ImmutableMap.<String, Object>of();
+//
+//    final Map<String, Object> map5 = ImmutableMap.<String, Object>of(DIMS.get(1), "dim10");
+//
+//    final Map<String, Object> map6 = new HashMap<>();
+//    map6.put(DIMS.get(1), null); // ImmutableMap cannot take null
 
 
     return Iterables.<Object[]>concat(
-        permute(map1)
+        permute(map1,map2,map3)
 //        , permute(map1, map4)
 //        , permute(map1, map5)
 //        , permute(map5, map6)
@@ -167,12 +180,13 @@ public class LuceneIndexMakerTest
   }
 
   IncrementalIndex toPersist;
-  File tmpDir;
-  File persistTmpDir;
+  File outDir;
+//  File persistTmpDir;
 
   @Before
   public void setUp() throws IOException
   {
+    outDir = Files.createTempDir();
     toPersist = new OnheapIncrementalIndex(
         JodaUtils.MIN_INSTANT,
         QueryGranularity.NONE,
@@ -182,24 +196,24 @@ public class LuceneIndexMakerTest
     for (InputRow event : events) {
       toPersist.add(event);
     }
-    tmpDir = Files.createTempDir();
-    persistTmpDir = new File(tmpDir, "persistDir");
-    IndexMaker.persist(toPersist, persistTmpDir, null, INDEX_SPEC);
+//    tmpDir = Files.createTempDir();
+//    persistTmpDir = new File(tmpDir, "persistDir");
+//    IndexMaker.persist(toPersist, persistTmpDir, null, INDEX_SPEC);
   }
 
   @After
   public void tearDown() throws IOException
   {
-    FileUtils.deleteDirectory(tmpDir);
+    if (outDir != null) {
+      FileUtils.deleteDirectory(outDir);
+    }
   }
 
   @Test
   public void testPersistWithSegmentMetadata() throws IOException
   {
-    File outDir = Files.createTempDir();
     QueryableIndex index = null;
     try {
-      outDir = Files.createTempDir();
       Map<String, Object> segmentMetadata = ImmutableMap.<String, Object>of("key", "value");
       LuceneIndexMaker.persist(toPersist, outDir, segmentMetadata, INDEX_SPEC);
       index = LuceneIndexIO.loadIndex(outDir);
@@ -216,12 +230,56 @@ public class LuceneIndexMakerTest
         index.close();
       }
 
-      if (outDir != null) {
-        FileUtils.deleteDirectory(outDir);
-      }
     }
   }
 
+
+
+  @Test
+  public void testQUery() throws IOException {
+
+    Map<String, Object> segmentMetadata = ImmutableMap.<String, Object>of("key", "value");
+    LuceneIndexMaker.persist(toPersist, outDir, segmentMetadata, INDEX_SPEC);
+
+    try {
+      SelectQuery query = new SelectQuery(
+              new TableDataSource(""),
+              QueryRunnerTestHelper.fullOnInterval,
+              new SelectorDimFilter(DIMS.get(0), "dim01"),
+//              null,
+              QueryRunnerTestHelper.allGran,
+              Lists.<String>newArrayList(),
+              Lists.<String>newArrayList(),
+              new PagingSpec(null, 3),
+              null
+      );
+
+      QueryableIndex queryableIndex = LuceneIndexIO.loadIndex(outDir);
+      QueryableIndexSegment segment = new QueryableIndexSegment(LuceneIndexMakerTest.segmentId, queryableIndex);
+      SelectQueryRunnerFactory factory = new SelectQueryRunnerFactory(
+              new SelectQueryQueryToolChest(
+                      new DefaultObjectMapper(),
+                      QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
+              ),
+              new SelectQueryEngine(),
+              QueryRunnerTestHelper.NOOP_QUERYWATCHER
+      );
+      QueryRunner<Result<SelectResultValue>> runner = QueryRunnerTestHelper.makeQueryRunner(factory, segment);
+
+
+      HashMap<String,Object> context = new HashMap<String, Object>();
+      Iterable<Result<SelectResultValue>> results = Sequences.toList(
+              runner.run(query, context),
+              Lists.<Result<SelectResultValue>>newArrayList()
+      );
+
+      System.out.println(results.toString());
+
+
+    } finally {
+
+    }
+  }
 
 
 }
