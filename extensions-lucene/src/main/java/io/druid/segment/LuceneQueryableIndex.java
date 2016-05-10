@@ -146,6 +146,10 @@ public class LuceneQueryableIndex implements QueryableIndex {
         return metadata;
     }
 
+    public Directory getDirectory() {
+        return directory;
+    }
+
     public class TermsColumn extends AbstractColumn {
         private final int length;
         private final DictionaryEncodedColumn dictionaryEncodedColumn;

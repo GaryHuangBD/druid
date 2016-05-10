@@ -165,6 +165,21 @@ public class LuceneIndexMaker
       throw new ISE("Couldn't make outdir[%s].", outDir);
     }
 
+    Directory dir = new NIOFSDirectory(Paths.get(outDir.toURI()));
+    IndexWriterConfig iwc = new IndexWriterConfig(new SimpleAnalyzer());
+    iwc.setUseCompoundFile(false);
+    WhaledbCodec.setCodes(iwc);
+    IndexWriter writer = new IndexWriter(dir, iwc);
+    Directory[] dirs = new Directory[indexes.size()];
+    LuceneQueryableIndex index;
+    for (int i=0;i<indexes.size();i++) {
+      index = indexes.get(i);
+      if(null != index) {
+        dirs[i] = indexes.get(i).getDirectory();
+      }
+    }
+    writer.addIndexes(dirs);
+    writer.close();
     return outDir;
   }
 }
